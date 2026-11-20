@@ -6,24 +6,29 @@ from typing import Any
 
 from mcp.server.mcpserver import MCPServer
 
-from ..client import AcceloClient
+from ..client import AcceloClient, build_params
 
 
 def register(server: MCPServer, client: AcceloClient):
     """Register webhook tools with the MCP server."""
 
     @server.tool()
-    async def accelo_list_webhook_subscriptions() -> dict:
+    async def accelo_list_webhook_subscriptions(page: int = 0, limit: int = 10) -> dict:
         """List webhook subscriptions for the current user.
 
-        Returns all webhook subscriptions registered by the authenticated user.
+        Returns the webhook subscriptions registered by the authenticated user.
         Each subscription contains: trigger_url, event_id, content_type,
         trigger_table, trigger_type, user_deployment, user_id.
+
+        Args:
+            page: Page number (0-indexed)
+            limit: Results per page (max 100)
         """
-        return await client.get("/webhooks/subscriptions")
+        params = build_params(page=page, limit=limit)
+        return await client.get("/webhooks/subscriptions", params=params)
 
     @server.tool()
-    async def accelo_list_webhook_subscription_types() -> dict:
+    async def accelo_list_webhook_subscription_types(page: int = 0, limit: int = 10) -> dict:
         """List available webhook subscription event types.
 
         Returns the available events you can subscribe to. Events include:
@@ -31,8 +36,13 @@ def register(server: MCPServer, client: AcceloClient):
         delete_invoice, create_request, update_request_status, create_issue,
         update_issue, create_company, update_company, create_contact,
         update_contact, create_sale, update_sale, delete_activity.
+
+        Args:
+            page: Page number (0-indexed)
+            limit: Results per page (max 100)
         """
-        return await client.get("/webhooks/subscriptions/types")
+        params = build_params(page=page, limit=limit)
+        return await client.get("/webhooks/subscriptions/types", params=params)
 
     @server.tool()
     async def accelo_create_webhook_subscription(
