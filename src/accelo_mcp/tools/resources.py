@@ -26,9 +26,12 @@ def register(server: MCPServer, client: AcceloClient):
             object_id: The object's ID
             page: Page number (0-indexed)
             limit: Results per page (max 100)
+
+        The result has a top-level has_more flag: true when further pages exist.
         """
-        params = build_params(page=page, limit=limit)
-        return await client.get(f"/{object_type}/{object_id}/collections", params=params)
+        return await client.get_page(
+            f"/{object_type}/{object_id}/collections", page=page, limit=limit
+        )
 
     @server.tool()
     async def accelo_list_resources(
