@@ -314,12 +314,7 @@ def register(server: MCPServer, client: AcceloClient):
         return await client.delete(f"/activities/{id}")
 
     @server.tool()
-    async def accelo_list_interactions(
-        id: int,
-        fields: str | None = None,
-        page: int = 0,
-        limit: int = 10,
-    ) -> dict:
+    async def accelo_list_interactions(id: int, fields: str | None = None) -> dict:
         """List the interactions (senders/recipients) on a single activity.
 
         An interaction is a sender or recipient of an activity — a staff member or
@@ -330,10 +325,8 @@ def register(server: MCPServer, client: AcceloClient):
         Args:
             id: Activity ID
             fields: Additional fields on the returned staff/contact objects
-            page: Page number (0-indexed)
-            limit: Results per page (max 100)
         """
-        params = build_params(fields=fields, page=page, limit=limit)
+        params = {"_fields": fields} if fields else {}
         return await client.get(f"/activities/{id}/interacts", params=params)
 
     @server.tool()

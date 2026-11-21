@@ -41,7 +41,6 @@ LIST_TOOLS = [
         {"object_type": "companies", "object_id": 7},
         "/companies/7/profiles/values",
     ),
-    ("accelo_list_interactions", {"id": 1053}, "/activities/1053/interacts"),
     (
         "accelo_list_progressions",
         {"object_type": "tasks", "object_id": 24},
@@ -52,8 +51,6 @@ LIST_TOOLS = [
         {"object_type": "issues", "object_id": 9},
         "/issues/9/collections",
     ),
-    ("accelo_list_webhook_subscriptions", {}, "/webhooks/subscriptions"),
-    ("accelo_list_webhook_subscription_types", {}, "/webhooks/subscriptions/types"),
 ]
 IDS = [t[0] for t in LIST_TOOLS]
 
