@@ -25,7 +25,9 @@ def register(server: MCPServer, client: AcceloClient):
             page: Page number (0-indexed)
             limit: Results per page (max 100)
 
-        The result has a top-level has_more flag: true when further pages exist.
+        The result has a top-level has_more flag: true when another page exists.
+        With limit=100 it is true whenever the page is full, so the next page
+        may be empty.
         """
         return await client.get_page(
             f"/{object_type}/extensions/fields", fields=fields, page=page, limit=limit
@@ -48,7 +50,9 @@ def register(server: MCPServer, client: AcceloClient):
             page: Page number (0-indexed)
             limit: Results per page (max 100)
 
-        The result has a top-level has_more flag: true when further pages exist.
+        The result has a top-level has_more flag: true when another page exists.
+        With limit=100 it is true whenever the page is full, so the next page
+        may be empty.
         """
         return await client.get_page(
             f"/{object_type}/{object_id}/extensions/values", fields=fields, page=page, limit=limit

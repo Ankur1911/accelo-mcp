@@ -94,10 +94,15 @@ class AcceloClient:
         full, which means "there may be more" (the next page can turn out to
         be empty).
 
+        ``limit`` is clamped to 1..100 and ``page`` to 0 or above, so the flag
+        is always computed from a real page request.
+
         The flag is only added when ``response`` is a flat list. Any other
-        shape is returned unchanged.
+        shape is returned unchanged, but the request has already gone out with
+        the extra row, so use this only on endpoints that return a flat list.
         """
-        size = min(limit, MAX_PAGE_SIZE)
+        size = max(1, min(limit, MAX_PAGE_SIZE))
+        page = max(page, 0)
         probe = size < MAX_PAGE_SIZE
         params = build_params(
             filters=filters,
@@ -105,10 +110,8 @@ class AcceloClient:
             search=search,
             page=page,
             limit=size + 1 if probe else size,
+            offset=page * size if probe else None,
         )
-        if probe:
-            del params["_page"]
-            params["_offset"] = page * size
         result = await self.get(path, params=params)
 
         rows = result.get("response")
@@ -304,6 +307,7 @@ def build_params(
     search: str | None = None,
     page: int = 0,
     limit: int = 10,
+    offset: int | None = None,
 ) -> dict[str, Any]:
     """Build Accelo API query parameters from structured inputs.
 
@@ -313,11 +317,13 @@ def build_params(
         search: Free-text search term
         page: Page number (0-indexed)
         limit: Results per page (max 100)
+        offset: Start row. When set it is sent as _offset in place of _page.
     """
-    params: dict[str, Any] = {
-        "_page": page,
-        "_limit": min(limit, MAX_PAGE_SIZE),
-    }
+    params: dict[str, Any] = {"_limit": min(limit, MAX_PAGE_SIZE)}
+    if offset is None:
+        params["_page"] = page
+    else:
+        params["_offset"] = offset
 
     filter_str = build_filters(filters)
     if filter_str:

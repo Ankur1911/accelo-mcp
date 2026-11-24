@@ -46,11 +46,6 @@ PAGED_TOOLS = [
         {"object_type": "tasks", "object_id": 24},
         "/tasks/24/progressions",
     ),
-    (
-        "accelo_list_collections",
-        {"object_type": "issues", "object_id": 9},
-        "/issues/9/collections",
-    ),
 ]
 IDS = [t[0] for t in PAGED_TOOLS]
 
@@ -224,6 +219,97 @@ class TestFullSizePage:
         assert len(out["response"]) == 99
         assert out["has_more"] is True
 
+    @respx.mock
+    @pytest.mark.asyncio
+    async def test_limit_100_later_page_uses_page_and_no_offset(self, server_and_client):
+        server, client = server_and_client
+        route = _mock_total("/prospects/extensions/fields", 250)
+
+        out = await _call(
+            server,
+            "accelo_list_extension_fields",
+            {"object_type": "prospects", "page": 1, "limit": 100},
+        )
+        await client.close()
+
+        query = parse_qs(route.calls[0].request.url.query.decode())
+        assert query["_page"] == ["1"]
+        assert query["_limit"] == ["100"]
+        assert "_offset" not in query
+        assert out["response"][0]["id"] == "100"
+
+    @respx.mock
+    @pytest.mark.asyncio
+    async def test_exactly_100_rows_at_limit_100_is_may_have_more(self, server_and_client):
+        """The 100-row case cannot be probed: page 0 says true, page 1 is empty."""
+        server, client = server_and_client
+        _mock_total("/prospects/extensions/fields", 100)
+        args = {"object_type": "prospects", "limit": 100}
+
+        first = await _call(server, "accelo_list_extension_fields", {**args, "page": 0})
+        second = await _call(server, "accelo_list_extension_fields", {**args, "page": 1})
+        await client.close()
+
+        assert len(first["response"]) == 100
+        assert first["has_more"] is True
+        assert second["response"] == []
+        assert second["has_more"] is False
+
+
+class TestOutOfRangeArguments:
+    """limit below 1 and a negative page are clamped before the flag is computed."""
+
+    @respx.mock
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("limit", [0, -1, -5])
+    async def test_limit_below_one_is_treated_as_one(self, server_and_client, limit):
+        server, client = server_and_client
+        route = _mock_total("/prospects/extensions/fields", 25)
+
+        out = await _call(
+            server, "accelo_list_extension_fields", {"object_type": "prospects", "limit": limit}
+        )
+        await client.close()
+
+        query = parse_qs(route.calls[0].request.url.query.decode())
+        assert query["_limit"] == ["2"]
+        assert query["_offset"] == ["0"]
+        assert [r["id"] for r in out["response"]] == ["0"]
+        assert out["has_more"] is True
+
+    @respx.mock
+    @pytest.mark.asyncio
+    async def test_limit_below_one_never_reports_more_on_an_empty_page(self, server_and_client):
+        server, client = server_and_client
+        _mock_total("/prospects/extensions/fields", 0)
+
+        out = await _call(
+            server, "accelo_list_extension_fields", {"object_type": "prospects", "limit": 0}
+        )
+        await client.close()
+
+        assert out["response"] == []
+        assert out["has_more"] is False
+
+    @respx.mock
+    @pytest.mark.asyncio
+    async def test_negative_page_is_treated_as_first_page(self, server_and_client):
+        server, client = server_and_client
+        route = _mock_total("/prospects/extensions/fields", 25)
+
+        out = await _call(
+            server,
+            "accelo_list_extension_fields",
+            {"object_type": "prospects", "page": -1, "limit": 10},
+        )
+        await client.close()
+
+        query = parse_qs(route.calls[0].request.url.query.decode())
+        assert query["_limit"] == ["11"]
+        assert query["_offset"] == ["0"]
+        assert [r["id"] for r in out["response"]] == [str(i) for i in range(10)]
+        assert out["has_more"] is True
+
 
 class TestResponseShape:
     @respx.mock
@@ -240,17 +326,25 @@ class TestResponseShape:
 
     @respx.mock
     @pytest.mark.asyncio
-    async def test_object_response_is_returned_unchanged(self, server_and_client):
-        """Only flat lists are measured; any other shape passes through untouched."""
+    async def test_collections_is_not_probed_and_is_returned_unchanged(self, server_and_client):
+        """Collections may return an object of arrays, so it asks for exactly ``limit`` rows."""
         server, client = server_and_client
         body = {"meta": {"status": "ok"}, "response": {"collections": [{"id": "1"}]}}
-        respx.get(f"{BASE}/issues/9/collections").mock(return_value=httpx.Response(200, json=body))
+        route = respx.get(f"{BASE}/issues/9/collections").mock(
+            return_value=httpx.Response(200, json=body)
+        )
 
         out = await _call(
-            server, "accelo_list_collections", {"object_type": "issues", "object_id": 9}
+            server,
+            "accelo_list_collections",
+            {"object_type": "issues", "object_id": 9, "limit": 10},
         )
         await client.close()
 
+        query = parse_qs(route.calls[0].request.url.query.decode())
+        assert query["_limit"] == ["10"]
+        assert query["_page"] == ["0"]
+        assert "_offset" not in query
         assert out == body
 
     @respx.mock

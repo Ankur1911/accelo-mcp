@@ -46,11 +46,6 @@ LIST_TOOLS = [
         {"object_type": "tasks", "object_id": 24},
         "/tasks/24/progressions",
     ),
-    (
-        "accelo_list_collections",
-        {"object_type": "issues", "object_id": 9},
-        "/issues/9/collections",
-    ),
 ]
 IDS = [t[0] for t in LIST_TOOLS]
 
@@ -117,6 +112,27 @@ class TestListToolPagination:
         query = _query(route)
         assert query["_limit"] == ["100"]
         assert query["_page"] == ["0"]
+
+
+class TestCollectionsPagination:
+    """Collections keeps plain _page/_limit paging and reports no has_more."""
+
+    @respx.mock
+    @pytest.mark.asyncio
+    async def test_page_and_limit_are_forwarded_unchanged(self, server_and_client):
+        server, client = server_and_client
+        route = _ok_route("/issues/9/collections")
+
+        await server.call_tool(
+            "accelo_list_collections",
+            {"object_type": "issues", "object_id": 9, "page": 3, "limit": 25},
+        )
+        await client.close()
+
+        query = _query(route)
+        assert query["_page"] == ["3"]
+        assert query["_limit"] == ["25"]
+        assert "_offset" not in query
 
 
 class TestFieldsStillForwarded:
